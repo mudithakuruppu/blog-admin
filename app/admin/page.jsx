@@ -1,11 +1,19 @@
-import React from 'react'
+'use client';
 
-function page() {
-  return (
-    <div>
-      <h1>Hi admin</h1>
-    </div>
-  )
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function AdminPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      router.push('/admin/dashboard');
+    }
+  }, []);
+
+  return null;
 }
-
-export default page

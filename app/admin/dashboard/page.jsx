@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FaUserCircle,
   FaSignOutAlt,
@@ -8,41 +9,78 @@ import {
   FaComments,
   FaEye,
   FaTrash,
-} from 'react-icons/fa'
+} from "react-icons/fa";
 
 function Dashboard() {
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const router = useRouter();
 
-  // Calculate stats from posts
-  const totalPosts = posts.length
-  const drafts = posts.filter(post => post.status === 'DRAFT').length
-  // Assuming posts have a 'comments' field which is a number
-  const comments = posts.reduce((sum, post) => sum + (post.comments || 0), 0)
-  // Assuming posts have a 'views' field
-  const totalViews = posts.reduce((sum, post) => sum + (post.views || 0), 0)
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Check authentication and fetch posts
   useEffect(() => {
+    const token = localStorage.getItem("jwtToken");
+
+    if (!token) {
+      // No token, redirect to login
+      router.push("/login");
+      return;
+    }
+
     async function fetchPosts() {
       try {
-        setLoading(true)
-        const response = await fetch('http://localhost:8080/api/posts/all-posts')
-        if (!response.ok) throw new Error('Failed to fetch posts')
-        const data = await response.json()
-        setPosts(data)
-        setError(null)
+        setLoading(true);
+        const response = await fetch("http://localhost:8080/api/posts/all-posts", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 401) {
+          // Unauthorized - token invalid or expired
+          localStorage.removeItem("jwtToken");
+          router.push("/login");
+          return;
+        }
+
+        if (!response.ok) throw new Error("Failed to fetch posts");
+
+        const data = await response.json();
+        setPosts(data);
+        setError(null);
       } catch (err) {
-        setError(err.message)
+        setError(err.message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    fetchPosts()
-  }, [])
 
-  if (loading) return <div className="p-8 text-center text-indigo-600 font-semibold">Loading dashboard...</div>
-  if (error) return <div className="p-8 text-center text-red-600 font-semibold">Error: {error}</div>
+    fetchPosts();
+  }, [router]);
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem("jwtToken");
+    router.push("/login");
+  };
+
+  // Calculate stats from posts
+  const totalPosts = posts.length;
+  const drafts = posts.filter((post) => post.status === "DRAFT").length;
+  const comments = posts.reduce((sum, post) => sum + (post.comments || 0), 0);
+  const totalViews = posts.reduce((sum, post) => sum + (post.views || 0), 0);
+
+  if (loading)
+    return (
+      <div className="p-8 text-center text-indigo-600 font-semibold">
+        Loading dashboard...
+      </div>
+    );
+  if (error)
+    return (
+      <div className="p-8 text-center text-red-600 font-semibold">Error: {error}</div>
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-indigo-50 via-white to-indigo-50 p-8 font-sans text-gray-800">
@@ -62,7 +100,10 @@ function Dashboard() {
 
         <div className="flex items-center space-x-6 text-indigo-600">
           <FaUserCircle className="w-8 h-8 drop-shadow" />
-          <button className="flex items-center space-x-2 rounded-md px-3 py-2 font-semibold hover:bg-indigo-100 hover:text-indigo-700 transition">
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 rounded-md px-3 py-2 font-semibold hover:bg-indigo-100 hover:text-indigo-700 transition"
+          >
             <FaSignOutAlt />
             <span>Logout</span>
           </button>
@@ -72,13 +113,38 @@ function Dashboard() {
       {/* Cards Section */}
       <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
         {[
-          { icon: FaFileAlt, title: 'Total Posts', value: totalPosts, color: 'text-blue-600 bg-blue-100' },
-          { icon: FaEdit, title: 'Drafts', value: drafts, color: 'text-yellow-600 bg-yellow-100' },
-          { icon: FaComments, title: 'Comments', value: comments, color: 'text-green-600 bg-green-100' },
-          { icon: FaEye, title: 'Total Views', value: totalViews.toLocaleString(), color: 'text-purple-600 bg-purple-100' },
+          {
+            icon: FaFileAlt,
+            title: "Total Posts",
+            value: totalPosts,
+            color: "text-blue-600 bg-blue-100",
+          },
+          {
+            icon: FaEdit,
+            title: "Drafts",
+            value: drafts,
+            color: "text-yellow-600 bg-yellow-100",
+          },
+          {
+            icon: FaComments,
+            title: "Comments",
+            value: comments,
+            color: "text-green-600 bg-green-100",
+          },
+          {
+            icon: FaEye,
+            title: "Total Views",
+            value: totalViews.toLocaleString(),
+            color: "text-purple-600 bg-purple-100",
+          },
         ].map(({ icon: Icon, title, value, color }) => (
-          <div key={title} className="flex items-center rounded-xl bg-white p-5 shadow-lg hover:shadow-xl transition-shadow">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-full ${color} mr-4 drop-shadow`}>
+          <div
+            key={title}
+            className="flex items-center rounded-xl bg-white p-5 shadow-lg hover:shadow-xl transition-shadow"
+          >
+            <div
+              className={`flex h-12 w-12 items-center justify-center rounded-full ${color} mr-4 drop-shadow`}
+            >
               <Icon className="w-6 h-6" />
             </div>
             <div>
@@ -105,40 +171,51 @@ function Dashboard() {
             </thead>
             <tbody>
               {posts.map(({ id, title, status, dateCreated, views }) => {
-                const statusDisplay = status.charAt(0) + status.slice(1).toLowerCase()
+                const statusDisplay = status.charAt(0) + status.slice(1).toLowerCase();
                 return (
-                  <tr key={id} className="border-b border-indigo-200 hover:bg-indigo-50 transition-colors">
+                  <tr
+                    key={id}
+                    className="border-b border-indigo-200 hover:bg-indigo-50 transition-colors"
+                  >
                     <td className="py-3 px-6 font-medium">{title}</td>
                     <td className="py-3 px-6">
                       <span
                         className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          status === 'PUBLISHED'
-                            ? 'bg-green-200 text-green-800'
-                            : 'bg-yellow-200 text-yellow-800'
+                          status === "PUBLISHED"
+                            ? "bg-green-200 text-green-800"
+                            : "bg-yellow-200 text-yellow-800"
                         }`}
                       >
                         {statusDisplay}
                       </span>
                     </td>
-                    <td className="py-3 px-6">{dateCreated ? new Date(dateCreated).toLocaleString() : '—'}</td>
+                    <td className="py-3 px-6">
+                      {dateCreated ? new Date(dateCreated).toLocaleString() : "—"}
+                    </td>
                     <td className="py-3 px-6">{views?.toLocaleString() ?? 0}</td>
                     <td className="py-3 px-6 flex space-x-4">
-                      <button aria-label={`Edit post ${title}`} className="text-indigo-600 hover:text-indigo-900 transition">
+                      <button
+                        aria-label={`Edit post ${title}`}
+                        className="text-indigo-600 hover:text-indigo-900 transition"
+                      >
                         <FaEdit className="w-5 h-5" />
                       </button>
-                      <button aria-label={`Delete post ${title}`} className="text-red-600 hover:text-red-900 transition">
+                      <button
+                        aria-label={`Delete post ${title}`}
+                        className="text-red-600 hover:text-red-900 transition"
+                      >
                         <FaTrash className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
-                )
+                );
               })}
             </tbody>
           </table>
         </div>
       </section>
     </div>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;
