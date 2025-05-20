@@ -62,7 +62,7 @@ export default function SignupPage() {
         </form>
         <p className="text-center text-sm text-gray-600 mt-4">
           Already have an account?{' '}
-          <a href="/login" className="text-blue-600 hover:underline font-medium">
+          <a href="http://localhost:3000/admin/login" className="text-blue-600 hover:underline font-medium">
             Log in here
           </a>
         </p>

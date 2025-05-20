@@ -57,7 +57,7 @@ export default function LoginPage() {
         <p className="text-center text-sm text-gray-600 mt-4">
           Don&apos;t have an account?{' '}
           <a
-            href="/signup"
+            href="http://localhost:3000/admin/signup"
             className="text-blue-600 hover:underline font-medium"
           >
             Sign up here
