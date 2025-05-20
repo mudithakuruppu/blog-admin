@@ -18,10 +18,11 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang='en' suppressHydrationWarning>
+      <head>
+        <meta name="grammarly:disabled" content="true" />
+      </head>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>
