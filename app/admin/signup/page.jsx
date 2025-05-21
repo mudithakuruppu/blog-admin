@@ -15,7 +15,7 @@ export default function SignupPage() {
     try {
       await axios.post('http://localhost:8080/api/auth/signup', form);
       alert('Signup successful');
-      router.push('/login');
+      router.push('/admin/login');
     } catch (err) {
       alert('Signup failed');
     } finally {

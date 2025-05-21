@@ -9,7 +9,7 @@ export default function AdminPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('admin/login');
+      router.push('/admin/login');
     } else {
       router.push('/admin/dashboard');
     }

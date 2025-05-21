@@ -20,11 +20,9 @@ function Dashboard() {
 
   // Check authentication and fetch posts
   useEffect(() => {
-    const token = localStorage.getItem("jwtToken");
-
+    const token = localStorage.getItem("jwtToken");  // or "token" if that’s what you use
     if (!token) {
-      // No token, redirect to login
-      router.push("/login");
+      router.push("/admin/login");
       return;
     }
 
@@ -38,9 +36,8 @@ function Dashboard() {
         });
 
         if (response.status === 401) {
-          // Unauthorized - token invalid or expired
           localStorage.removeItem("jwtToken");
-          router.push("/login");
+          router.push("/admin/login");
           return;
         }
 
@@ -53,16 +50,17 @@ function Dashboard() {
         setError(err.message);
       } finally {
         setLoading(false);
-      }
     }
+  }
 
-    fetchPosts();
-  }, [router]);
+  fetchPosts();
+}, [router]);
+
 
   // Logout handler
   const handleLogout = () => {
     localStorage.removeItem("jwtToken");
-    router.push("/login");
+    router.push("/admin/login");
   };
 
   // Calculate stats from posts

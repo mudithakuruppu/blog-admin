@@ -31,12 +31,22 @@ export default function PostsAdmin() {
   });
 
   const fetchPosts = async () => {
-    const res = await axios.get("http://localhost:8080/api/posts/all-posts");
+    const token = localStorage.getItem("jwtToken");
+    const res = await axios.get("http://localhost:8080/api/posts/all-posts", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     setPosts(res.data);
   };
 
   const fetchCategories = async () => {
-    const res = await axios.get("http://localhost:8080/api/categories/all");
+    const token= localStorage.getItem("jwtToekn");
+    const res = await axios.get("http://localhost:8080/api/categories/all",{
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     setCategories(res.data);
   };
 
@@ -47,7 +57,11 @@ export default function PostsAdmin() {
 
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this post?")) return;
-    await axios.delete(`http://localhost:8080/api/posts/delete/${id}`);
+    await axios.delete(`http://localhost:8080/api/posts/delete/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     setPosts(posts.filter((post) => post.id !== id));
   };
 
@@ -73,7 +87,13 @@ export default function PostsAdmin() {
     };
 
     try {
-      await axios.put(`http://localhost:8080/api/posts/update-post/${currentPost.id}`, payload);
+      await axios.put(`http://localhost:8080/api/posts/update-post/${currentPost.id}`, 
+        payload,
+      {
+        headers: {
+          Authorization: `Bearer ${toekn}`,
+        },
+      });
       fetchPosts();
       setOpenModal(false);
     } catch (err) {

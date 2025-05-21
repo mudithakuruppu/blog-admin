@@ -15,8 +15,8 @@ export default function LoginPage() {
     try {
       const res = await axios.post('http://localhost:8080/api/auth/login', credentials);
       const { token } = res.data;
-      localStorage.setItem('token', token);
-      router.push('/dashboard');
+      localStorage.setItem("jwtToken", token);
+      router.push('/admin/dashboard');
     } catch (err) {
       alert('Invalid username or password');
     } finally {
