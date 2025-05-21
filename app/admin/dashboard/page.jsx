@@ -18,9 +18,9 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check authentication and fetch posts
+  
   useEffect(() => {
-    const token = localStorage.getItem("jwtToken");  // or "token" if that’s what you use
+    const token = localStorage.getItem("jwtToken"); 
     if (!token) {
       router.push("/admin/login");
       return;
@@ -57,13 +57,13 @@ function Dashboard() {
 }, [router]);
 
 
-  // Logout handler
+  
   const handleLogout = () => {
     localStorage.removeItem("jwtToken");
     router.push("/admin/login");
   };
 
-  // Calculate stats from posts
+  
   const totalPosts = posts.length;
   const drafts = posts.filter((post) => post.status === "DRAFT").length;
   const comments = posts.reduce((sum, post) => sum + (post.comments || 0), 0);
