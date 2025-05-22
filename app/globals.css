@@ -4,3 +4,15 @@
   min-height: 300px;
   font-size: 16px;
 }
+
+
+/* Highlight current selection */
+.tiptap ::selection {
+  background: #cce5ff;
+}
+
+/* Optional: Animate caret */
+.tiptap:focus {
+  caret-color: #007bff;
+}
+

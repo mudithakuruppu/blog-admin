@@ -40,8 +40,32 @@ export default function PostsAdmin() {
     setPosts(res.data);
   };
 
+  const handleViewPost = async (post) => {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first.");
+      return;
+    }
+
+    try {
+      await axios.post(`http://localhost:8080/api/posts/view/${post.id}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+     
+    } catch (error) {
+      console.error("Error viewing post:", error.response || error.message);
+      if (error.response?.status === 403) {
+        alert("You are not authorized to view this post.");
+      } else {
+        alert("An error occurred.");
+      }
+    }
+  };
+
+
+
   const fetchCategories = async () => {
-    const token= localStorage.getItem("jwtToekn");
+    const token= localStorage.getItem("jwtToken");
     const res = await axios.get("http://localhost:8080/api/categories/all",{
       headers: {
         Authorization: `Bearer ${token}`,
@@ -91,7 +115,7 @@ export default function PostsAdmin() {
         payload,
       {
         headers: {
-          Authorization: `Bearer ${toekn}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       fetchPosts();
@@ -129,7 +153,9 @@ export default function PostsAdmin() {
           <tbody>
             {filteredPosts.map((post) => (
               <tr key={post.id} className="border-t">
-                <td className="px-4 py-2 font-bold">{post.title}</td>
+                <td className="px-4 py-2 font-bold cursor-pointer text-blue-600 hover:underline" onClick={() => handleViewPost(post)}>
+                  {post.title}
+                </td>
                 <td className="px-4 py-2">{post.category?.name || "Uncategorized"}</td>
                 <td className="px-4 py-2 space-x-2">
                   <button
