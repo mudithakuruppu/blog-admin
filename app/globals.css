@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+
 .quill-container .ql-container {
   min-height: 300px;
   font-size: 16px;

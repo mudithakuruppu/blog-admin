@@ -14,21 +14,46 @@ export default function CreatePostPage() {
   const [categoryId, setCategoryId] = useState(1);
   const [categories, setCategories] = useState([]);
 
-  // ✅ Fetch categories once on mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const res = await axios.get("http://localhost:8080/api/categories/all");
         setCategories(res.data);
-        if (res.data.length > 0) {
-          setCategoryId(res.data[0].id); 
-        }
+        if (res.data.length > 0) setCategoryId(res.data[0].id);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
       }
     };
     fetchCategories();
   }, []);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file); // <--- change from "file" to "image"
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.post(
+        "http://localhost:8080/api/posts/upload-image",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setImage(res.data);
+    } catch (err) {
+      console.error("Image upload failed:", err);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,12 +69,8 @@ export default function CreatePostPage() {
     };
 
     try {
-      await axios.post("http://localhost:8080/api/posts/add-post", postData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      alert("Post created successfully!");
+      await axios.post("http://localhost:8080/api/posts/add-post", postData);
+      alert("✅ Post created successfully!");
       setTitle("");
       setExcerpt("");
       setContent("");
@@ -58,81 +79,113 @@ export default function CreatePostPage() {
       setStatus("DRAFT");
       setCategoryId(categories.length > 0 ? categories[0].id : 1);
     } catch (err) {
-      alert("Failed to create post");
+      alert("❌ Failed to create post");
       console.error(err);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Create New Post</h1>
+    <div className="max-w-4xl mx-auto p-8 bg-white shadow-xl rounded-xl mt-10">
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">📝 Create New Post</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="w-full p-2 border rounded"
-        />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-        <input
-          type="text"
-          placeholder="Excerpt"
-          value={excerpt}
-          onChange={(e) => setExcerpt(e.target.value)}
-          required
-          className="w-full p-2 border rounded"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Excerpt</label>
+          <input
+            type="text"
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            required
+            className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-        <input
-          type="text"
-          placeholder="Image filename or URL"
-          value={image}
-          onChange={(e) => setImage(e.target.value)}
-          className="w-full p-2 border rounded"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Image</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="file-input file-input-bordered file-input-sm w-full max-w-xs"
+          />
+          {image && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-600 mb-2">Image Preview:</p>
+              <img
+                src={`http://localhost:8080/uploads/${image}`}
+                alt="Preview"
+                className="rounded-lg shadow-md w-64 border"
+              />
+            </div>
+          )}
+        </div>
 
-        <input
-          type="text"
-          placeholder="Author name"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          required
-          className="w-full p-2 border rounded"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Author</label>
+          <input
+            type="text"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            required
+            className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="w-full p-2 border rounded"
-        >
-          <option value="DRAFT">Draft</option>
-          <option value="PUBLISHED">Published</option>
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+            </select>
+          </div>
 
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(parseInt(e.target.value))}
-          className="w-full p-2 border rounded"
-        >
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-        <label className="block font-semibold">Content</label>
-        <MyTiptapEditor value={content} onChange={setContent} />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Content</label>
+          <div className="border rounded-lg shadow-sm p-2 bg-white">
+            <MyTiptapEditor value={content} onChange={setContent} />
+          </div>
+        </div>
 
-        <button
-          type="submit"
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-        >
-          Create Post
-        </button>
+        <div className="text-right">
+          <button
+            type="submit"
+            className="inline-flex items-center px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+          >
+            🚀 Create Post
+          </button>
+        </div>
       </form>
     </div>
   );

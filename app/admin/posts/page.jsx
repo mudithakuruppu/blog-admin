@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -15,43 +15,127 @@ export default function PostsAdmin() {
 
   const [openModal, setOpenModal] = useState(false);
   const [currentPost, setCurrentPost] = useState(null);
+
   const [updatedTitle, setUpdatedTitle] = useState("");
   const [updatedSlug, setUpdatedSlug] = useState("");
   const [updatedCategory, setUpdatedCategory] = useState("");
   const [categories, setCategories] = useState([]);
 
-  const [editorContent, setEditorContent] = useState("");
+  // Flag to detect if slug was manually edited
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
+  // Editor setup
   const editor = useEditor({
     extensions: [StarterKit, Placeholder.configure({ placeholder: "Write post content..." })],
-    content: editorContent,
+    content: "",
     onUpdate: ({ editor }) => {
       setEditorContent(editor.getHTML());
     },
   });
 
-  const fetchPosts = async () => {
-    const token = localStorage.getItem("jwtToken");
-    const res = await axios.get("http://localhost:8080/api/posts/all-posts", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    setPosts(res.data);
+  const [editorContent, setEditorContent] = useState("");
+
+  // Utility: fetch token fresh each time, in case it changes
+  const getToken = () => localStorage.getItem("jwtToken");
+
+  // Fetch posts
+  const fetchPosts = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const res = await axios.get("http://localhost:8080/api/posts/all-posts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPosts(res.data);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+  }, []);
+
+  // Fetch categories
+  const fetchCategories = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const res = await axios.get("http://localhost:8080/api/categories/all", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories(res.data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+    fetchCategories();
+  }, [fetchPosts, fetchCategories]);
+
+  // When modal opens and currentPost changes, set editor content
+  useEffect(() => {
+    if (openModal && currentPost && editor) {
+      editor.commands.setContent(currentPost.content || "");
+      setEditorContent(currentPost.content || "");
+    }
+  }, [openModal, currentPost, editor]);
+
+  // Handle opening the modal for editing
+  const openEditModal = (post) => {
+    setCurrentPost(post);
+
+    const title = post.title || "";
+    setUpdatedTitle(title);
+    setUpdatedCategory(post.category?.id || "");
+    setSlugManuallyEdited(false);
+
+    // Generate slug from title initially
+    const generatedSlug = title
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9\-]/g, "");
+    setUpdatedSlug(generatedSlug);
+
+    setOpenModal(true);
   };
 
+  // Update slug when title changes only if slug wasn't manually edited
+  const onTitleChange = (value) => {
+    setUpdatedTitle(value);
+
+    if (!slugManuallyEdited) {
+      const generatedSlug = value
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9\-]/g, "");
+      setUpdatedSlug(generatedSlug);
+    }
+  };
+
+  // Mark slug as manually edited when user types in slug input
+  const onSlugChange = (value) => {
+    setUpdatedSlug(value);
+    setSlugManuallyEdited(true);
+  };
+
+  // View post handler
   const handleViewPost = async (post) => {
-    const token = localStorage.getItem("jwtToken");
+    const token = getToken();
     if (!token) {
       alert("Please log in first.");
       return;
     }
 
     try {
-      await axios.post(`http://localhost:8080/api/posts/view/${post.id}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+      await axios.get(`http://localhost:8080/api/posts/get-post/${post.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-     
+      alert("Post viewed successfully!");
     } catch (error) {
       console.error("Error viewing post:", error.response || error.message);
       if (error.response?.status === 403) {
@@ -62,46 +146,36 @@ export default function PostsAdmin() {
     }
   };
 
-
-
-  const fetchCategories = async () => {
-    const token= localStorage.getItem("jwtToken");
-    const res = await axios.get("http://localhost:8080/api/categories/all",{
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    setCategories(res.data);
-  };
-
-  useEffect(() => {
-    fetchPosts();
-    fetchCategories();
-  }, []);
-
+  // Delete post handler
   const handleDelete = async (id) => {
+    const token = getToken();
+    if (!token) {
+      alert("Please log in first.");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this post?")) return;
-    await axios.delete(`http://localhost:8080/api/posts/delete/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    setPosts(posts.filter((post) => post.id !== id));
+
+    try {
+      await axios.delete(`http://localhost:8080/api/posts/delete/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPosts((prev) => prev.filter((post) => post.id !== id));
+    } catch (error) {
+      alert("Failed to delete post");
+      console.error(error);
+    }
   };
 
-  const openEditModal = (post) => {
-    setCurrentPost(post);
-    setUpdatedTitle(post.title);
-    setUpdatedSlug(post.slug);
-    setUpdatedCategory(post.category?.id || "");
-    setEditorContent(post.content || "");
-    setOpenModal(true);
-    setTimeout(() => {
-      editor?.commands.setContent(post.content || "");
-    }, 100);
-  };
-
+  // Update post handler
   const handleUpdatePost = async () => {
+    const token = getToken();
+    if (!token) {
+      alert("Please log in first.");
+      return;
+    }
+
+    if (!currentPost) return;
+
     const payload = {
       ...currentPost,
       title: updatedTitle,
@@ -111,22 +185,23 @@ export default function PostsAdmin() {
     };
 
     try {
-      await axios.put(`http://localhost:8080/api/posts/update-post/${currentPost.id}`, 
+      await axios.put(
+        `http://localhost:8080/api/posts/update-post/${currentPost.id}`,
         payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      fetchPosts();
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchPosts();
       setOpenModal(false);
+      setCurrentPost(null);
     } catch (err) {
       alert("Failed to update post");
+      console.error(err);
     }
   };
 
+  // Filter posts based on search term
   const filteredPosts = posts.filter((post) =>
-    post.title.toLowerCase().includes(searchTerm.toLowerCase())
+    (post.title || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -153,7 +228,10 @@ export default function PostsAdmin() {
           <tbody>
             {filteredPosts.map((post) => (
               <tr key={post.id} className="border-t">
-                <td className="px-4 py-2 font-bold cursor-pointer text-blue-600 hover:underline" onClick={() => handleViewPost(post)}>
+                <td
+                  className="px-4 py-2 font-bold cursor-pointer text-blue-600 hover:underline"
+                  onClick={() => handleViewPost(post)}
+                >
                   {post.title}
                 </td>
                 <td className="px-4 py-2">{post.category?.name || "Uncategorized"}</td>
@@ -179,12 +257,20 @@ export default function PostsAdmin() {
 
       {/* Modal */}
       <Transition appear show={openModal} as={Fragment}>
-        <Dialog as="div" className="relative z-10" onClose={() => setOpenModal(false)}>
+        <Dialog
+          as="div"
+          className="relative z-10"
+          onClose={() => setOpenModal(false)}
+          static
+        >
           <Transition.Child
             as={Fragment}
-            enter="ease-out duration-300" leave="ease-in duration-200"
-            enterFrom="opacity-0" enterTo="opacity-100"
-            leaveFrom="opacity-100" leaveTo="opacity-0"
+            enter="ease-out duration-300"
+            leave="ease-in duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
             <div className="fixed inset-0 bg-black bg-opacity-25" />
           </Transition.Child>
@@ -194,7 +280,7 @@ export default function PostsAdmin() {
               <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                   <Dialog.Title className="text-xl font-semibold">Edit Post</Dialog.Title>
-                  <button onClick={() => setOpenModal(false)}>
+                  <button onClick={() => setOpenModal(false)} aria-label="Close modal">
                     <X size={24} />
                   </button>
                 </div>
@@ -203,12 +289,7 @@ export default function PostsAdmin() {
                   <input
                     type="text"
                     value={updatedTitle}
-                    onChange={(e) => {
-                      setUpdatedTitle(e.target.value);
-                      setUpdatedSlug(
-                        e.target.value.toLowerCase().replace(/ /g, "-")
-                      );
-                    }}
+                    onChange={(e) => onTitleChange(e.target.value)}
                     placeholder="Title"
                     className="w-full border px-3 py-2 rounded"
                   />
@@ -216,7 +297,7 @@ export default function PostsAdmin() {
                   <input
                     type="text"
                     value={updatedSlug}
-                    onChange={(e) => setUpdatedSlug(e.target.value)}
+                    onChange={(e) => onSlugChange(e.target.value)}
                     placeholder="Slug"
                     className="w-full border px-3 py-2 rounded"
                   />
