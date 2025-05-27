@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import axios from "axios";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Pencil, Trash2, Save, X } from "lucide-react";
+import Image from "@tiptap/extension-image";
+import { Pencil, Trash2, Save, X, Image as ImageIcon } from "lucide-react";
 
 export default function PostsAdmin() {
   const [posts, setPosts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
   const [openModal, setOpenModal] = useState(false);
   const [currentPost, setCurrentPost] = useState(null);
 
@@ -21,28 +20,32 @@ export default function PostsAdmin() {
   const [updatedCategory, setUpdatedCategory] = useState("");
   const [categories, setCategories] = useState([]);
 
-  // Flag to detect if slug was manually edited
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [editorContent, setEditorContent] = useState("");
 
-  // Editor setup
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [savingPost, setSavingPost] = useState(false);
+
   const editor = useEditor({
-    extensions: [StarterKit, Placeholder.configure({ placeholder: "Write post content..." })],
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: "Write post content..." }),
+      Image,
+    ],
     content: "",
     onUpdate: ({ editor }) => {
       setEditorContent(editor.getHTML());
     },
   });
 
-  const [editorContent, setEditorContent] = useState("");
-
-  // Utility: fetch token fresh each time, in case it changes
   const getToken = () => localStorage.getItem("jwtToken");
 
-  // Fetch posts
   const fetchPosts = useCallback(async () => {
     const token = getToken();
     if (!token) return;
 
+    setLoadingPosts(true);
     try {
       const res = await axios.get("http://localhost:8080/api/posts/all-posts", {
         headers: { Authorization: `Bearer ${token}` },
@@ -50,14 +53,16 @@ export default function PostsAdmin() {
       setPosts(res.data);
     } catch (error) {
       console.error("Error fetching posts:", error);
+    } finally {
+      setLoadingPosts(false);
     }
   }, []);
 
-  // Fetch categories
   const fetchCategories = useCallback(async () => {
     const token = getToken();
     if (!token) return;
 
+    setLoadingCategories(true);
     try {
       const res = await axios.get("http://localhost:8080/api/categories/all", {
         headers: { Authorization: `Bearer ${token}` },
@@ -65,6 +70,8 @@ export default function PostsAdmin() {
       setCategories(res.data);
     } catch (error) {
       console.error("Error fetching categories:", error);
+    } finally {
+      setLoadingCategories(false);
     }
   }, []);
 
@@ -73,7 +80,6 @@ export default function PostsAdmin() {
     fetchCategories();
   }, [fetchPosts, fetchCategories]);
 
-  // When modal opens and currentPost changes, set editor content
   useEffect(() => {
     if (openModal && currentPost && editor) {
       editor.commands.setContent(currentPost.content || "");
@@ -81,16 +87,13 @@ export default function PostsAdmin() {
     }
   }, [openModal, currentPost, editor]);
 
-  // Handle opening the modal for editing
   const openEditModal = (post) => {
     setCurrentPost(post);
-
     const title = post.title || "";
     setUpdatedTitle(title);
     setUpdatedCategory(post.category?.id || "");
     setSlugManuallyEdited(false);
 
-    // Generate slug from title initially
     const generatedSlug = title
       .toString()
       .toLowerCase()
@@ -102,10 +105,8 @@ export default function PostsAdmin() {
     setOpenModal(true);
   };
 
-  // Update slug when title changes only if slug wasn't manually edited
   const onTitleChange = (value) => {
     setUpdatedTitle(value);
-
     if (!slugManuallyEdited) {
       const generatedSlug = value
         .toString()
@@ -117,36 +118,11 @@ export default function PostsAdmin() {
     }
   };
 
-  // Mark slug as manually edited when user types in slug input
   const onSlugChange = (value) => {
     setUpdatedSlug(value);
     setSlugManuallyEdited(true);
   };
 
-  // View post handler
-  const handleViewPost = async (post) => {
-    const token = getToken();
-    if (!token) {
-      alert("Please log in first.");
-      return;
-    }
-
-    try {
-      await axios.get(`http://localhost:8080/api/posts/get-post/${post.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert("Post viewed successfully!");
-    } catch (error) {
-      console.error("Error viewing post:", error.response || error.message);
-      if (error.response?.status === 403) {
-        alert("You are not authorized to view this post.");
-      } else {
-        alert("An error occurred.");
-      }
-    }
-  };
-
-  // Delete post handler
   const handleDelete = async (id) => {
     const token = getToken();
     if (!token) {
@@ -166,7 +142,6 @@ export default function PostsAdmin() {
     }
   };
 
-  // Update post handler
   const handleUpdatePost = async () => {
     const token = getToken();
     if (!token) {
@@ -176,10 +151,17 @@ export default function PostsAdmin() {
 
     if (!currentPost) return;
 
+    setSavingPost(true);
+
     const payload = {
       ...currentPost,
       title: updatedTitle,
-      slug: updatedSlug,
+      slug: updatedSlug || updatedTitle
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9\-]/g, ""),
       categoryId: updatedCategory,
       content: editorContent,
     };
@@ -193,16 +175,54 @@ export default function PostsAdmin() {
       await fetchPosts();
       setOpenModal(false);
       setCurrentPost(null);
+      editor.commands.clearContent();
+      setUpdatedTitle("");
+      setUpdatedSlug("");
+      setUpdatedCategory("");
+      setSlugManuallyEdited(false);
+      setEditorContent("");
     } catch (err) {
       alert("Failed to update post");
       console.error(err);
+    } finally {
+      setSavingPost(false);
     }
   };
 
-  // Filter posts based on search term
   const filteredPosts = posts.filter((post) =>
     (post.title || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Image upload handler that inserts image into editor content
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // TODO: Replace this with your actual image upload endpoint and response handling
+      /*
+      const uploadRes = await axios.post(
+        "http://localhost:8080/api/upload",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const imageUrl = uploadRes.data.url;
+      */
+
+      // Demo: Use local blob URL (replace with real URL after upload)
+      const imageUrl = URL.createObjectURL(file);
+
+      editor.chain().focus().setImage({ src: imageUrl }).run();
+
+      event.target.value = null; // reset input
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      alert("Image upload failed");
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -217,124 +237,233 @@ export default function PostsAdmin() {
       />
 
       <div className="overflow-x-auto bg-white shadow rounded">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="text-left px-4 py-2">Title</th>
-              <th className="text-left px-4 py-2">Category</th>
-              <th className="text-left px-4 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPosts.map((post) => (
-              <tr key={post.id} className="border-t">
-                <td
-                  className="px-4 py-2 font-bold cursor-pointer text-blue-600 hover:underline"
-                  onClick={() => handleViewPost(post)}
-                >
-                  {post.title}
-                </td>
-                <td className="px-4 py-2">{post.category?.name || "Uncategorized"}</td>
-                <td className="px-4 py-2 space-x-2">
-                  <button
-                    onClick={() => openEditModal(post)}
-                    className="text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    <Pencil size={16} /> Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(post.id)}
-                    className="text-red-600 hover:underline flex items-center gap-1"
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
-                </td>
+        {loadingPosts ? (
+          <div className="p-6 text-center text-gray-600">Loading posts...</div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="text-left px-4 py-2">Title</th>
+                <th className="text-left px-4 py-2">Category</th>
+                <th className="text-left px-4 py-2">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map((post) => (
+                  <tr key={post.id} className="border-t">
+                    <td
+                      className="px-4 py-2 font-bold cursor-pointer text-blue-600 hover:underline"
+                      onClick={() => openEditModal(post)}
+                    >
+                      {post.title}
+                    </td>
+                    <td className="px-4 py-2">
+                      {post.category?.name || "Uncategorized"}
+                    </td>
+                    <td className="px-4 py-2 space-x-2">
+                      <button
+                        onClick={() => openEditModal(post)}
+                        className="text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Pencil size={16} /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(post.id)}
+                        className="text-red-600 hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 size={16} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-gray-500">
+                    No posts found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Modal */}
       <Transition appear show={openModal} as={Fragment}>
         <Dialog
           as="div"
-          className="relative z-10"
-          onClose={() => setOpenModal(false)}
-          static
+          className="relative z-50"
+          onClose={() => {
+            setOpenModal(false);
+            setCurrentPost(null);
+            editor.commands.clearContent();
+            setUpdatedTitle("");
+            setUpdatedSlug("");
+            setUpdatedCategory("");
+            setSlugManuallyEdited(false);
+            setEditorContent("");
+          }}
         >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
-            leave="ease-in duration-200"
             enterFrom="opacity-0"
             enterTo="opacity-100"
+            leave="ease-in duration-200"
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
+            <div className="fixed inset-0 bg-black/50" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-full p-4">
-              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl">
-                <div className="flex justify-between items-center mb-4">
-                  <Dialog.Title className="text-xl font-semibold">Edit Post</Dialog.Title>
-                  <button onClick={() => setOpenModal(false)} aria-label="Close modal">
-                    <X size={24} />
-                  </button>
-                </div>
+            <div className="flex min-h-full items-center justify-center p-6">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded bg-white p-8 shadow-xl transition-all">
+                  <Dialog.Title className="text-xl font-semibold flex justify-between items-center mb-6">
+                    Edit Post
+                    <button
+                      onClick={() => {
+                        setOpenModal(false);
+                        setCurrentPost(null);
+                        editor.commands.clearContent();
+                        setUpdatedTitle("");
+                        setUpdatedSlug("");
+                        setUpdatedCategory("");
+                        setSlugManuallyEdited(false);
+                        setEditorContent("");
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                      aria-label="Close modal"
+                    >
+                      <X size={24} />
+                    </button>
+                  </Dialog.Title>
 
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={updatedTitle}
-                    onChange={(e) => onTitleChange(e.target.value)}
-                    placeholder="Title"
-                    className="w-full border px-3 py-2 rounded"
-                  />
-
-                  <input
-                    type="text"
-                    value={updatedSlug}
-                    onChange={(e) => onSlugChange(e.target.value)}
-                    placeholder="Slug"
-                    className="w-full border px-3 py-2 rounded"
-                  />
-
-                  <select
-                    value={updatedCategory}
-                    onChange={(e) => setUpdatedCategory(e.target.value)}
-                    className="w-full border px-3 py-2 rounded"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="border rounded p-2">
-                    <EditorContent editor={editor} />
+                  <div className="mb-4">
+                    <label className="block font-medium mb-1" htmlFor="title">
+                      Title
+                    </label>
+                    <input
+                      id="title"
+                      type="text"
+                      className="border w-full px-3 py-2 rounded"
+                      value={updatedTitle}
+                      onChange={(e) => onTitleChange(e.target.value)}
+                      disabled={savingPost}
+                    />
                   </div>
 
-                  <div className="flex justify-end space-x-3 mt-4">
+                  <div className="mb-4">
+                    <label className="block font-medium mb-1" htmlFor="slug">
+                      Slug
+                    </label>
+                    <input
+                      id="slug"
+                      type="text"
+                      className="border w-full px-3 py-2 rounded"
+                      value={updatedSlug}
+                      onChange={(e) => onSlugChange(e.target.value)}
+                      disabled={savingPost}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label
+                      className="block font-medium mb-1"
+                      htmlFor="category"
+                    >
+                      Category
+                    </label>
+                    <select
+                      id="category"
+                      className="border w-full px-3 py-2 rounded"
+                      value={updatedCategory}
+                      onChange={(e) => setUpdatedCategory(e.target.value)}
+                      disabled={loadingCategories || savingPost}
+                    >
+                      <option value="">Select a category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block font-medium mb-2">Content</label>
+
+                    <div className="border rounded p-2 min-h-[150px]">
+                      <EditorContent editor={editor} />
+                    </div>
+
+                    <label className="inline-flex items-center mt-2 cursor-pointer">
+                      <ImageIcon size={16} className="mr-1" />
+                      <span className="text-sm">Insert Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={savingPost}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
                     <button
-                      onClick={() => setOpenModal(false)}
-                      className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
+                      type="button"
+                      className="rounded border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setOpenModal(false);
+                        setCurrentPost(null);
+                        editor.commands.clearContent();
+                        setUpdatedTitle("");
+                        setUpdatedSlug("");
+                        setUpdatedCategory("");
+                        setSlugManuallyEdited(false);
+                        setEditorContent("");
+                      }}
+                      disabled={savingPost}
                     >
                       Cancel
                     </button>
+
                     <button
+                      type="button"
+                      className="inline-flex justify-center rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
                       onClick={handleUpdatePost}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1"
+                      disabled={
+                        savingPost ||
+                        !updatedTitle.trim() ||
+                        !updatedSlug.trim() ||
+                        !updatedCategory
+                      }
                     >
-                      <Save size={16} /> Save
+                      {savingPost ? (
+                        <>
+                          <Save size={16} className="animate-spin mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={16} className="mr-2" />
+                          Save
+                        </>
+                      )}
                     </button>
                   </div>
-                </div>
-              </Dialog.Panel>
+                </Dialog.Panel>
+              </Transition.Child>
             </div>
           </div>
         </Dialog>

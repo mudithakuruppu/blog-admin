@@ -7,16 +7,26 @@ export default function LatestPosts({ posts }) {
           className="flex flex-col bg-gray-50 rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 cursor-pointer"
         >
           <img
-            src={post.imageUrl}
+            src={
+              post.image
+                ? `http://localhost:8080/uploads/${post.image}`
+                : 'https://via.placeholder.com/300x200?text=No+Image'
+            }
             alt={post.title}
             className="w-full h-36 object-cover rounded-t-lg"
+            loading="lazy"
           />
           <div className="p-4 flex flex-col flex-grow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{post.title}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              {post.title}
+            </h3>
             <p className="text-gray-700 line-clamp-4 flex-grow">{post.excerpt}</p>
-            <button className="mt-3 self-start text-indigo-600 font-medium hover:underline">
-              Read More
-            </button>
+            <a
+              href={`/posts/${post.id}`}
+              className="mt-3 self-start text-indigo-600 font-medium hover:underline"
+            >
+              Read More →
+            </a>
           </div>
         </article>
       ))}

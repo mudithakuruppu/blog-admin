@@ -1,9 +1,14 @@
 export function PostCard({ post }) {
+  // Construct the full image URL if post.image exists
+  const imageUrl = post.image
+    ? `http://localhost:8080/uploads/${post.image}`
+    : 'https://via.placeholder.com/300x200?text=No+Image';
+
   return (
     <div className="group rounded-xl bg-white border border-gray-200 shadow-md hover:shadow-xl transition-shadow duration-300 hover:-translate-y-2 transform cursor-pointer overflow-hidden">
       <div className="overflow-hidden rounded-t-xl">
         <img
-          src={post.image}
+          src={imageUrl}
           alt={post.title}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
@@ -15,7 +20,6 @@ export function PostCard({ post }) {
         <a
           href={`/posts/${post.id}`}
           className="mt-4 inline-block text-indigo-600 font-medium hover:text-indigo-800 transition-colors duration-300"
-          aria-label={`Read more about ${post.title}`}
         >
           Read More &rarr;
         </a>
