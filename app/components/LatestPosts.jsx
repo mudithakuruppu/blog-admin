@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function LatestPosts({ posts }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -17,16 +19,18 @@ export default function LatestPosts({ posts }) {
             loading="lazy"
           />
           <div className="p-4 flex flex-col flex-grow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {post.title}
-            </h3>
+            <Link href={`/posts/${post.id}`}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 hover:underline">
+                {post.title}
+              </h3>
+            </Link>
             <p className="text-gray-700 line-clamp-4 flex-grow">{post.excerpt}</p>
-            <a
+            <Link
               href={`/posts/${post.id}`}
               className="mt-3 self-start text-indigo-600 font-medium hover:underline"
             >
               Read More →
-            </a>
+            </Link>
           </div>
         </article>
       ))}

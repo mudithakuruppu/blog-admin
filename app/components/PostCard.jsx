@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export function PostCard({ post }) {
   // Construct the full image URL if post.image exists
   const imageUrl = post.image
@@ -14,15 +16,22 @@ export function PostCard({ post }) {
           loading="lazy"
         />
       </div>
+
       <div className="p-5 flex flex-col justify-between h-[220px]">
-        <h3 className="text-2xl font-semibold text-gray-900 mb-2 line-clamp-2">{post.title}</h3>
+        <Link href={`/posts/${post.id}`}>
+          <h3 className="text-2xl font-semibold text-gray-900 mb-2 line-clamp-2 hover:underline cursor-pointer">
+            {post.title}
+          </h3>
+        </Link>
+
         <p className="text-gray-600 text-base flex-grow line-clamp-3">{post.excerpt}</p>
-        <a
+
+        <Link
           href={`/posts/${post.id}`}
           className="mt-4 inline-block text-indigo-600 font-medium hover:text-indigo-800 transition-colors duration-300"
         >
           Read More &rarr;
-        </a>
+        </Link>
       </div>
     </div>
   );
